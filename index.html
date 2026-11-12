@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Laboratório de pensamento computacional para explorar partições e construir árvores de decisão.">
+<title>Lab02 · Árvores de decisão</title>
+<link rel="stylesheet" href="style.css">
+<script src="iris.js" defer></script>
+<script src="lab.js" defer></script>
+</head>
+<body>
+<header class="masthead">
+  <div class="shell topline">
+    <a href="./" class="brand"><span class="mark">02</span> Pensamento Computacional</a>
+    <a class="back" href="https://mticedu-pc-2627.github.io/lab01-decision/">Lab01 ↗</a>
+  </div>
+</header>
+<main class="shell">
+  <section class="intro">
+    <p class="eyebrow">LAB02</p>
+    <h1>Árvores de decisão</h1>
+    <p>Experimenta uma pergunta, observa os grupos que ela cria e decide onde vale a pena voltar a dividir.</p>
+  </section>
+  <div class="controlbar">
+    <div class="tabs" role="group" aria-label="Modo de trabalho">
+      <button type="button" data-mode="explore" aria-pressed="true">1 · Explorar</button>
+      <button type="button" data-mode="metrics" aria-pressed="false">2 · Comparar Métricas</button>
+      <button type="button" data-mode="reflect" aria-pressed="false" aria-controls="reflection">3 · Refletir</button>
+      <button type="button" data-mode="guide" aria-pressed="false">4 · Guião</button>
+    </div>
+  </div>
+  <div id="dataset-control" class="dataset-tabs" role="tablist" aria-label="Conjunto de dados">
+    <button type="button" id="dataset-golf" data-dataset="golf" role="tab" aria-selected="true" aria-controls="workbench">Jogar golfe</button>
+    <button type="button" id="dataset-iris" data-dataset="iris" role="tab" aria-selected="false" aria-controls="workbench" tabindex="-1">Iris</button>
+    <button type="button" id="dataset-credit" data-dataset="credit" role="tab" aria-selected="false" aria-controls="workbench" tabindex="-1">Pedidos de crédito</button>
+  </div>
+  <div id="workbench" class="workbench" role="tabpanel" aria-labelledby="dataset-golf">
+    <aside class="panel tree-panel" aria-labelledby="tree-title">
+      <div class="panel-head"><div><h2 id="tree-title">A tua árvore</h2><p id="tree-summary"></p></div><button type="button" id="reset" class="reset">Recomeçar</button></div>
+      <button type="button" id="export-tree" class="quiet export-tree">Exportar árvore (SVG)</button>
+      <div class="tree-legend"><span class="legend-pure">Puro</span><span class="legend-leaf">Folha impura</span><span class="legend-active">Selecionado</span></div>
+      <div id="tree"></div>
+    </aside>
+    <div class="workspace">
+      <section class="panel samples" aria-labelledby="samples-title">
+        <h2 id="samples-title">Treino e teste</h2>
+        <p id="credit-context" hidden>Os 10 pedidos e as decisões são fictícios. O objetivo é comparar critérios de partição.</p>
+        <form id="sample-form">
+          <label for="train-percent">Treino <select id="train-percent"><option value="10">10</option><option value="20">20</option><option value="30">30</option><option value="40">40</option><option value="50">50</option><option value="60">60</option><option value="70">70</option><option value="80">80</option><option value="90">90</option><option value="100" selected>100</option></select> %</label>
+          <label for="test-percent">Teste <output id="test-percent" for="train-percent">0</output> %</label>
+          <button type="button" class="quiet" id="apply-samples">Sortear divisão</button>
+        </form>
+        <p id="sample-summary" role="status"></p>
+      </section>
+      <section class="panel split-panel" aria-labelledby="split-title">
+        <div class="panel-head"><div><p class="eyebrow" id="node-path"></p><h2 id="split-title">Experimentar uma partição</h2><p id="node-description"></p></div><span class="badge" id="node-count"></span></div>
+        <form id="split-form">
+          <div class="rule"><label for="feature">Característica</label><select id="feature"></select></div>
+          <div class="rule"><label for="value" id="value-label">Condição</label><select id="value"></select>
+            <div id="slider-control" hidden><input id="threshold" type="range" step="0.01" aria-label="Limiar em centímetros"><output id="threshold-value" for="threshold"></output></div>
+          </div>
+          <button class="primary" id="apply" type="button">Registar partição</button>
+        </form>
+        <p id="node-note" class="note" hidden></p>
+        <p id="preview-question" class="preview-question" hidden></p>
+        <div class="groups" id="groups"></div>
+        <p class="metric-summary" id="metric-summary" hidden></p>
+        <p id="announcement" class="sr-only" role="status" aria-atomic="true"></p>
+      </section>
+      <section class="panel" id="metrics" hidden>
+        <div class="panel-head"><div><h2>Partições candidatas</h2><p>Quanto maior a pontuação, mais a condição reduz a mistura das classes. Escolhe uma condição para a experimentar neste nó.</p></div></div>
+        <label class="criterion">Ordenar por <select id="criterion"><option value="gini">Redução da impureza de Gini</option><option value="entropy">Ganho de informação</option></select></label>
+        <div class="automatic-build">
+          <button type="button" id="auto-build" class="primary">Construir árvore automaticamente</button>
+          <p class="note">Usa o critério selecionado e os dados de treino da divisão ativa.</p>
+          <div id="auto-confirm" class="note" hidden>
+            <p>A construção automática substitui a árvore deste conjunto.</p>
+            <button type="button" id="auto-replace" class="quiet">Substituir árvore</button>
+            <button type="button" id="auto-cancel" class="quiet">Cancelar</button>
+          </div>
+          <p class="note" id="auto-status" role="status"></p>
+        </div>
+        <div class="table-scroll" id="rankings"></div>
+        <button type="button" class="quiet" id="show-more" hidden>Mostrar todas</button>
+      </section>
+      <section class="panel chart-panel" id="chart-panel" hidden>
+        <div class="panel-head"><div><h2>Ver a partição</h2><p>Cada ponto representa uma observação de treino do nó. Ambos os eixos vão de 0 a 8 cm.</p></div>
+        <label class="criterion">Eixo vertical <select id="axis"></select></label></div>
+        <div id="plot" role="img"></div>
+        <div id="plot-legend" class="plot-legend"></div>
+      </section>
+      <section class="panel evaluation" aria-labelledby="evaluation-title">
+        <div class="panel-head"><div><h2 id="evaluation-title">Avaliar a árvore</h2><p>Percorre a árvore com os exemplos de treino e de teste e compara os acertos.</p></div>
+        <div class="evaluation-actions"><button type="button" id="evaluate" class="primary">Avaliar</button>
+        <button type="button" id="export-results" class="quiet export-results" hidden>Exportar resultados (SVG)</button></div></div>
+        <div id="evaluation-results" class="groups" hidden></div>
+      </section>
+      <details class="panel rows"><summary>Consultar e ordenar os dados</summary>
+        <label class="criterion">Mostrar <select id="data-source"><option value="node">Treino do nó selecionado</option><option value="train">Treino completo</option><option value="test">Teste completo</option></select></label>
+        <p class="note" id="data-description"></p><div class="table-scroll" id="data-table"></div></details>
+    </div>
+  </div>
+  <article id="reflection" class="panel guide" hidden>
+    <div class="panel-head">
+      <div><h2>Reflexão</h2><p>Completa o registo em trabalho assíncrono. Usa as árvores, contagens ou pontuações que guardaste durante a sessão.</p></div>
+      <button type="button" id="export-reflection" class="quiet export-results">Descarregar respostas (.txt)</button>
+    </div>
+    <ol class="reflection-questions">
+      <li>
+        <label for="reflection-1"><strong>Escolher uma partição.</strong> Antes de consultares as métricas, que estratégia usarias para dividir os exemplos? O que procurarias na distribuição das classes e no tamanho dos ramos?</label>
+        <textarea id="reflection-1" rows="4"></textarea>
+      </li>
+      <li>
+        <label for="reflection-2"><strong>Comparar as métricas na raiz.</strong> Em Pedidos de crédito, usa 100% dos exemplos para treino. Que regra fica em primeiro lugar com cada métrica? Regista as duas pontuações de cada regra e usa as contagens dos ramos para explicar a diferença.</label>
+        <textarea id="reflection-2" rows="4"></textarea>
+      </li>
+      <li>
+        <label for="reflection-3"><strong>Comparar as árvores completas.</strong> Com os mesmos dez pedidos, constrói uma árvore por métrica. Em cada nó impuro, regista a primeira regra da lista. Compara o número de nós de decisão, o número de folhas e a profundidade máxima. Se a profundidade for igual, em que sentido pode uma árvore ser mais simples?</label>
+        <textarea id="reflection-3" rows="4"></textarea>
+      </li>
+      <li>
+        <label for="reflection-4"><strong>Decidir quando parar.</strong> Faz sempre sentido dividir até todas as folhas serem puras? Propõe dois critérios para parar o crescimento da árvore e explica como usarias os resultados em treino e teste para avaliar essa escolha.</label>
+        <textarea id="reflection-4" rows="4"></textarea>
+      </li>
+      <li>
+        <label for="reflection-5"><strong>Comparar sorteios de treino e teste.</strong> Usa 70% para treino e 30% para teste no Iris e em Pedidos de crédito. Mantém a mesma métrica nos dois conjuntos. Faz três sorteios em cada conjunto e, após cada sorteio, constrói automaticamente e avalia a árvore. Regista o número de exemplos de teste, os acertos e a percentagem antes de recomeçar para o sorteio seguinte. Em que conjunto variaram mais os resultados? Quanto muda a percentagem se houver mais um acerto? Explica que papel podem ter o tamanho do conjunto e os exemplos que ficaram no teste.</label>
+        <textarea id="reflection-5" rows="4"></textarea>
+      </li>
+    </ol>
+    <p id="reflection-status" class="note" role="status"></p>
+  </article>
+  <article id="guide" class="panel guide" hidden>
+    <div class="panel-head"><div><p class="eyebrow">GUIÃO · 60 MIN EM SESSÃO</p><h2>Da pergunta à partição</h2><p>No Lab01, propuseste perguntas para identificar animais. Aqui, cada pergunta divide as linhas de uma tabela em dois grupos.</p></div></div>
+    <div class="guide-grid">
+      <section><h3>1. Jogar golfe · 15 min</h3><p>Em <strong>Explorar</strong>, compara «Céu = Nublado?» com outra pergunta. Observa a mistura das classes e o tamanho de cada ramo. Regista uma partição e continua num ramo impuro.</p></section>
+      <section><h3>2. Iris · 15 min</h3><p>Compara duas medidas e move o slider para explorar limiares. Observa o gráfico, regista uma partição e procura uma regra para um dos ramos mistos.</p></section>
+      <section><h3>3. Pedidos de crédito · 25 min</h3><p>Usa <strong>100% dos exemplos em treino</strong>. Compara as duas métricas na raiz. Constrói depois uma árvore por métrica, escolhendo sempre a primeira regra da lista em cada nó impuro. Exporta a primeira árvore antes de recomeçar. Guarda as duas para comparares os nós de decisão, as folhas e a profundidade máxima. No fim, usa <strong>Construir árvore automaticamente</strong> para conferir a tua construção.</p></section>
+      <section><h3>4. Síntese · 5 min</h3><p>Partilha uma diferença observada. Para comparar a generalização de árvores mais ou menos profundas, reserva exemplos para teste antes de as construir e mantém a mesma divisão nas duas.</p></section>
+    </div>
+    <p><strong>Trabalho assíncrono.</strong> Completa as cinco perguntas em <strong>3 · Refletir</strong>. Para a última, usa a construção automática para repetir a avaliação com diferentes sorteios. Descarrega o registo das respostas.</p>
+    <section class="criteria-example" aria-labelledby="criteria-example-title">
+      <h3 id="criteria-example-title">O que faz uma boa partição?</h3>
+      <p>No Golfe, há 14 dias: jogou-se em 9 e não se jogou em 5. Compara duas perguntas sobre esses mesmos dias.</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th scope="col">Pergunta</th><th scope="col">Ramo Sim</th><th scope="col">Ramo Não</th><th scope="col">Redução da impureza de Gini</th><th scope="col">Ganho de informação</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Céu = Nublado?</th>
+              <td><span class="stack" aria-hidden="true"><span style="flex:4;background:#00786e"></span></span>4 jogaram, 0 não</td>
+              <td><span class="stack" aria-hidden="true"><span style="flex:5;background:#00786e"></span><span style="flex:5;background:#ad521e"></span></span>5 jogaram, 5 não</td>
+              <td>0,1020</td><td>0,2260</td></tr>
+            <tr><th scope="row">Céu = Sol?</th>
+              <td><span class="stack" aria-hidden="true"><span style="flex:2;background:#00786e"></span><span style="flex:3;background:#ad521e"></span></span>2 jogaram, 3 não</td>
+              <td><span class="stack" aria-hidden="true"><span style="flex:7;background:#00786e"></span><span style="flex:2;background:#ad521e"></span></span>7 jogaram, 2 não</td>
+              <td>0,0655</td><td>0,1022</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><strong>«Nublado» tem a melhor pontuação das duas.</strong> Um dos ramos fica puro: nos quatro dias nublados, jogou-se sempre. Com «Sol», há mistura nos dois ramos.</p>
+      <p><strong>Gini</strong> e <strong>entropia</strong> são duas formas de medir a mistura das classes. A <strong>redução da impureza de Gini</strong> e o <strong>ganho de informação</strong> medem quanto essa mistura diminui depois da divisão. Um ramo com mais exemplos pesa mais no cálculo.</p>
+      <details class="criteria-calculation">
+        <summary>Como se calculam as pontuações?</summary>
+        <p>Num nó, <em>p</em> é a proporção de cada classe. A impureza de Gini é <strong>1 − Σ p²</strong> e a entropia é <strong>−Σ p log₂(p)</strong>, considerando apenas as classes presentes. Ambas valem zero num nó puro.</p>
+        <p>Em cada caso, subtrai-se à impureza do nó inicial a média ponderada dos dois ramos. O peso de um ramo é o número dos seus exemplos dividido pelo total do nó inicial.</p>
+        <p><strong>«Céu = Nublado?»</strong> O ramo de 4 exemplos é puro. O de 10 tem duas classes em igual proporção, por isso a sua impureza de Gini é 0,5 e a sua entropia é 1 bit.</p>
+        <ul>
+          <li>Redução da impureza de Gini = 0,45918 − (4/14 × 0 + 10/14 × 0,5) ≈ <strong>0,1020</strong>.</li>
+          <li>Ganho de informação = 0,9403 − (4/14 × 0 + 10/14 × 1) ≈ <strong>0,2260 bits</strong>.</li>
+        </ul>
+      </details>
+    </section>
+  </article>
+</main>
+<footer class="shell footer">
+  <p>Dados: <a href="https://www.cs.cmu.edu/~mgormley/courses/10601-s23/slides/lecture3-dt.pdf">Golfe, adaptação didática de PlayTennis</a> · <a href="https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_iris.html">Iris, distribuição do scikit-learn</a> · Crédito: 10 pedidos fictícios · <a href="https://scikit-learn.org/stable/modules/tree.html">Referência sobre árvores</a></p>
+</footer>
+</body>
+</html>
